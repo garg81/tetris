@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tetris Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            /* Apply Poppins font globally */
+            font-family: 'Poppins', sans-serif;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            margin: 0;
+            background-color: #2d3748;
+            color: #e2e8f0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0.5rem;
+            padding-top: 1rem;
+            position: relative; /* Needed for absolute positioning of children */
+            max-height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #1a202c;
+            border: 4px solid #4a5568;
+            border-radius: 0.5rem;
+            max-width: 100%;
+            display: block;
+            margin-top: 0.5rem;
+            flex-shrink: 0;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 280px;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+        .settings {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 280px;
+            flex-shrink: 0;
+        }
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 0.3rem;
+            padding: 0.5rem;
+            background-color: rgba(45, 55, 72, 0.9);
+            flex-wrap: wrap;
+            z-index: 5;
+            flex-shrink: 0;
+        }
+        .btn {
+            padding: 0.4rem 0.6rem;
+            border: 2px solid #4a5568;
+            border-radius: 0.5rem;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 3px #2d3748;
+            user-select: none;
+            font-size: 0.7rem;
+            font-weight: 600;
+            min-width: 45px;
+            text-align: center;
+        }
+        .btn:active {
+            background-color: #2d3748;
+            transform: translateY(2px);
+            box-shadow: 0 1px #2d3748;
+        }
+        .btn-reset {
+            background-color: #c53030;
+            box-shadow: 0 3px #9b2c2c;
+        }
+        .btn-reset:active {
+            background-color: #9b2c2c;
+            box-shadow: 0 1px #9b2c2c;
+        }
+        .difficulty-select {
+            padding: 0.4rem;
+            border: 2px solid #4a5568;
+            border-radius: 0.5rem;
+            background-color: #4a5568;
+            color: #e2e8f0;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+            appearance: menulist;
+        }
+        #gameOverOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.5s linear;
+            z-index: 10;
+        }
+        #gameOverOverlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Keep v3 Media Queries, adjust font sizes slightly for Poppins */
+        @media (max-width: 600px) {
+            .game-container { padding: 0.3rem; padding-top: 0.5rem; }
+            .info-panel { font-size: 0.7rem; }
+            .btn { padding: 0.3rem 0.5rem; font-size: 0.6rem; min-width: 40px; }
+            .controls { padding: 0.3rem; gap: 0.2rem; }
+            .difficulty-select { padding: 0.3rem; font-size: 0.6rem; }
+            h1 { font-size: 1.25rem !important; margin-bottom: 0.2rem;} /* Adjusted for Poppins */
+            canvas { margin-top: 0.3rem; }
+            #gameOverOverlay div span.text-2xl { font-size: 1.5rem !important; } /* Adjust Game Over title size */
+            #gameOverOverlay div span.text-xl { font-size: 1.25rem !important; } /* Adjust Game Over score size */
+             /* Adjust credit text size */
+            .credit-text { font-size: 0.55rem !important; top: 0.1rem; right: 0.1rem;}
+        }
+        @media (max-height: 500px) {
+             h1 { font-size: 1rem !important; margin-bottom: 0.1rem;}
+             .info-panel { font-size: 0.65rem; margin-bottom: 0.2rem;}
+             .settings { margin-bottom: 0.2rem; gap: 0.3rem;}
+             canvas { margin-top: 0.2rem; }
+             .btn { font-size: 0.55rem; padding: 0.2rem 0.4rem; min-width: 35px;}
+             .controls { padding: 0.2rem; gap: 0.1rem;}
+             .difficulty-select { font-size: 0.55rem; padding: 0.2rem;}
+             #gameOverOverlay div span.text-2xl { font-size: 1.25rem !important; }
+             #gameOverOverlay div span.text-xl { font-size: 1rem !important; }
+              /* Adjust credit text size */
+             .credit-text { font-size: 0.5rem !important; top: 0.1rem; right: 0.1rem;}
+        }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="credit-text absolute top-1 right-2 text-xs font-bold text-green-500 z-10">By Ajay Garg</div>
+
+        <h1 class="text-xl font-bold mb-1 text-center flex-shrink-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
+            TETRIS
+        </h1>
+        <div class="info-panel">
+            <div>Score: <span id="score" class="text-yellow-400 font-bold">0</span></div>
+            <div>Level: <span id="level" class="text-green-400 font-bold">1</span></div>
+        </div>
+        <div class="settings">
+            <label for="difficulty" class="self-center mr-1 text-xs">Difficulty:</label>
+            <select id="difficulty" class="difficulty-select">
+                <option value="1000">Easy</option>
+                <option value="600" selected>Medium</option>
+                <option value="300">Hard</option>
+            </select>
+            <button id="resetButton" class="btn btn-reset">Reset</button>
+        </div>
+        <canvas id="tetrisCanvas"></canvas>
+        <div id="gameOverOverlay">
+            <div>
+                <span class="text-2xl font-bold text-red-500 block mb-2">GAME OVER!</span>
+                Score: <span id="finalScore" class="text-xl text-yellow-400 font-bold">0</span><br>
+                <button id="restartButton" class="btn mt-2 bg-green-500 border-green-600 text-white shadow-[0_3px_#16a34a] active:bg-green-600 active:shadow-[0_1px_#15803d]">Play Again</button>
+            </div>
+        </div>
+        <div class="controls">
+            <button id="leftButton" class="btn">Left</button>
+            <button id="rotateButton" class="btn">Rotate</button>
+            <button id="rightButton" class="btn">Right</button>
+            <button id="downButton" class="btn">Down</button>
+            </div>
+    </div>
+
+    <script>
+        // --- Tone.js Setup (Audio Context) ---
+        let toneStarted = false;
+        async function startTone() {
+            if (!toneStarted) {
+                try {
+                    await Tone.start();
+                    console.log("AudioContext started");
+                    toneStarted = true;
+                } catch (e) {
+                    console.error("Error starting Tone.js AudioContext:", e);
+                }
+            }
+        }
+        document.body.addEventListener('click', startTone, { once: true });
+        document.body.addEventListener('touchstart', startTone, { once: true });
+        document.body.addEventListener('keydown', startTone, { once: true });
+
+        // --- Game Setup & DOM References ---
+        const canvas = document.getElementById('tetrisCanvas');
+        const context = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const difficultySelect = document.getElementById('difficulty');
+        const resetButton = document.getElementById('resetButton');
+        const gameOverOverlay = document.getElementById('gameOverOverlay');
+        const finalScoreElement = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+        const gameContainer = document.querySelector('.game-container');
+
+        // --- Game Constants ---
+        const COLS = 10;
+        const ROWS = 20;
+        const COLORS = [ null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF' ];
+        const SHAPES = [
+            [],
+            [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]], // I
+            [[2,0,0], [2,2,2], [0,0,0]],                  // J
+            [[0,0,3], [3,3,3], [0,0,0]],                  // L
+            [[4,4], [4,4]],                              // O
+            [[0,5,0], [5,5,5], [0,0,0]],                  // T
+            [[0,6,6], [6,6,0], [0,0,0]],                  // S
+            [[7,7,0], [0,7,7], [0,0,0]]                   // Z
+        ];
+
+        // --- Game State Variables ---
+        let BLOCK_SIZE, canvasWidth, canvasHeight;
+        let board, currentPiece, currentX, currentY, score, level, linesCleared, gameOver, dropInterval, baseDropIntervalTime, currentDropIntervalTime;
+
+        // --- Sound Effects ---
+        const synth = new Tone.Synth().toDestination();
+        const playSound = (note, duration) => {
+            if (toneStarted && synth) {
+                try { synth.triggerAttackRelease(note, duration); }
+                catch (e) { console.error("Tone.js playback error:", e); }
+            }
+        };
+        const moveSound = () => playSound("C4", "8n");
+        const rotateSound = () => playSound("E4", "8n");
+        const dropSound = () => playSound("G4", "8n");
+        const lineClearSound = () => playSound("C5", "4n");
+        const placeSound = () => playSound("A3", "8n");
+        const gameOverSound = () => playSound("C3", "2n");
+
+        // --- Dynamic Canvas Sizing ---
+        function resizeCanvas() {
+            const controlsElement = document.querySelector('.controls');
+            const titleElement = document.querySelector('h1');
+            const infoPanelElement = document.querySelector('.info-panel');
+            const settingsElement = document.querySelector('.settings');
+            const containerStyle = window.getComputedStyle(gameContainer);
+            const canvasStyle = window.getComputedStyle(canvas);
+
+            const controlsHeight = controlsElement ? controlsElement.offsetHeight : 50;
+            const titleHeight = titleElement ? titleElement.offsetHeight : 20;
+            const titleMarginBottom = titleElement ? parseFloat(window.getComputedStyle(titleElement).marginBottom) : 4;
+            const infoPanelHeight = infoPanelElement ? infoPanelElement.offsetHeight : 15;
+            const infoPanelMarginBottom = infoPanelElement ? parseFloat(window.getComputedStyle(infoPanelElement).marginBottom) : 8;
+            const settingsHeight = settingsElement ? settingsElement.offsetHeight : 30;
+            const settingsMarginBottom = settingsElement ? parseFloat(window.getComputedStyle(settingsElement).marginBottom) : 8;
+            const canvasMarginTop = parseFloat(canvasStyle.marginTop) || 8;
+            const containerPaddingTop = parseFloat(containerStyle.paddingTop) || 8;
+            const containerPaddingBottom = parseFloat(containerStyle.paddingBottom) || 8;
+
+            const totalNonCanvasHeight =
+                containerPaddingTop + titleHeight + titleMarginBottom +
+                infoPanelHeight + infoPanelMarginBottom + settingsHeight + settingsMarginBottom +
+                canvasMarginTop + controlsHeight + containerPaddingBottom + 5;
+
+            const availableWidth = gameContainer.clientWidth - (parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight));
+            const maxWidth = Math.min(availableWidth, 300);
+            const maxHeight = window.innerHeight - totalNonCanvasHeight;
+
+            if (maxHeight <= 0) {
+                 console.error("Calculated maxHeight is zero or negative. Check UI element heights.");
+                 canvas.width = 100; canvas.height = 200; BLOCK_SIZE = 10; draw(); return;
+            }
+
+            canvasWidth = maxWidth;
+            canvasHeight = canvasWidth * (ROWS / COLS);
+            if (canvasHeight > maxHeight) {
+                canvasHeight = maxHeight;
+                canvasWidth = canvasHeight * (COLS / ROWS);
+            }
+            canvasWidth = Math.max(canvasWidth, COLS * 5);
+            canvasHeight = Math.max(canvasHeight, ROWS * 5);
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            BLOCK_SIZE = canvasWidth / COLS;
+
+            console.log(`Window H: ${window.innerHeight}, NonCanvas H: ${totalNonCanvasHeight.toFixed(1)}, Max H: ${maxHeight.toFixed(1)}, Canvas W/H: ${canvasWidth.toFixed(1)}x${canvasHeight.toFixed(1)}, Block: ${BLOCK_SIZE.toFixed(1)}`);
+            draw();
+        }
+
+        // --- Game Logic Functions ---
+        function createBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
+        function getRandomPiece() {
+            const randIndex = Math.floor(Math.random() * (SHAPES.length - 1)) + 1;
+            return { shape: SHAPES[randIndex], colorIndex: randIndex, x: 0, y: 0 };
+        }
+        function spawnPiece() {
+            currentPiece = getRandomPiece();
+            currentX = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
+            currentY = 0;
+            if (checkCollision(currentX, currentY, currentPiece.shape)) {
+                gameOver = true;
+                showGameOver();
+                if (dropInterval) clearInterval(dropInterval);
+            }
+        }
+        function rotatePiece() {
+            if (gameOver) return;
+            const originalShape = currentPiece.shape;
+            const N = originalShape.length;
+            const rotatedShape = Array.from({ length: N }, () => Array(N).fill(0));
+            for (let i = 0; i < N; i++) {
+                for (let j = 0; j < N; j++) {
+                    rotatedShape[j][N - 1 - i] = originalShape[i][j];
+                }
+            }
+            let kickX = 0;
+            if (checkCollision(currentX, currentY, rotatedShape)) {
+                if (!checkCollision(currentX + 1, currentY, rotatedShape)) kickX = 1;
+                else if (!checkCollision(currentX - 1, currentY, rotatedShape)) kickX = -1;
+                else if (N > 2 && !checkCollision(currentX + 2, currentY, rotatedShape)) kickX = 2; // Added N check
+                else if (N > 2 && !checkCollision(currentX - 2, currentY, rotatedShape)) kickX = -2; // Added N check
+                else return;
+            }
+            currentX += kickX;
+            currentPiece.shape = rotatedShape;
+            rotateSound();
+            draw();
+        }
+        function movePiece(dx, dy) {
+            if (gameOver) return false;
+            if (!checkCollision(currentX + dx, currentY + dy, currentPiece.shape)) {
+                currentX += dx;
+                currentY += dy;
+                if (dy === 0 && dx !== 0) moveSound();
+                return true;
+            }
+            return false;
+        }
+        function hardDrop() {
+            if (gameOver) return;
+            let moved = false;
+            while (movePiece(0, 1)) { moved = true; }
+            if (moved) dropSound();
+            placePiece();
+        }
+        function checkCollision(x, y, shape) {
+            for (let row = 0; row < shape.length; row++) {
+                for (let col = 0; col < shape[row].length; col++) {
+                    if (shape[row][col] !== 0) {
+                        const boardX = x + col;
+                        const boardY = y + row;
+                        if (boardX < 0 || boardX >= COLS || boardY >= ROWS || (boardY >= 0 && board[boardY]?.[boardX] !== 0)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        function placePiece() {
+             if (gameOver) return;
+            for (let row = 0; row < currentPiece.shape.length; row++) {
+                for (let col = 0; col < currentPiece.shape[row].length; col++) {
+                    if (currentPiece.shape[row][col] !== 0) {
+                        const boardY = currentY + row;
+                        const boardX = currentX + col;
+                        if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
+                            board[boardY][boardX] = currentPiece.colorIndex;
+                        } else if (boardY < 0) {
+                             gameOver = true;
+                             showGameOver();
+                             if (dropInterval) clearInterval(dropInterval);
+                             return;
+                         }
+                    }
+                }
+            }
+            if (!gameOver) {
+                placeSound();
+                clearLines();
+                if (!gameOver) {
+                    spawnPiece();
+                    updateScoreLevel();
+                }
+            }
+        }
+        function clearLines() {
+            let linesToClear = 0;
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    linesToClear++;
+                    board.splice(y, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    y++;
+                }
+            }
+            if (linesToClear > 0) {
+                lineClearSound();
+                let points = [0, 40, 100, 300, 1200][linesToClear] * level;
+                score += points;
+                linesCleared += linesToClear;
+                const newLevel = Math.floor(linesCleared / 10) + 1;
+                if (newLevel > level) {
+                    level = newLevel;
+                    updateDropInterval();
+                }
+                updateScoreLevel();
+            }
+        }
+        function updateScoreLevel() {
+            scoreElement.textContent = score;
+            levelElement.textContent = level;
+        }
+        function updateDropInterval() {
+            if (dropInterval) clearInterval(dropInterval);
+            currentDropIntervalTime = Math.max(baseDropIntervalTime - (level - 1) * 50, 100);
+            dropInterval = setInterval(gameLoopStep, currentDropIntervalTime);
+        }
+        function resetGame() {
+            if (dropInterval) clearInterval(dropInterval);
+            board = createBoard();
+            score = 0;
+            level = 1;
+            linesCleared = 0;
+            gameOver = false;
+            baseDropIntervalTime = parseInt(difficultySelect.value, 10);
+            hideGameOver();
+            resizeCanvas();
+             if (!context) { console.error("Canvas context not available during reset."); return; }
+            spawnPiece();
+            updateScoreLevel();
+            updateDropInterval();
+        }
+        function showGameOver() {
+            gameOverSound();
+            finalScoreElement.textContent = score;
+            gameOverOverlay.classList.add('show');
+        }
+        function hideGameOver() {
+            gameOverOverlay.classList.remove('show');
+        }
+
+        // --- Drawing Functions ---
+        function drawBlock(x, y, colorIndex) {
+            if (colorIndex === null || colorIndex === 0 || !context) return;
+            context.fillStyle = COLORS[colorIndex];
+            const drawX = Math.floor(x * BLOCK_SIZE);
+            const drawY = Math.floor(y * BLOCK_SIZE);
+            const size = Math.max(1, Math.floor(BLOCK_SIZE - 1));
+            context.fillRect(drawX, drawY, size, size);
+            if (BLOCK_SIZE > 4) {
+                context.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                context.lineWidth = 1;
+                context.strokeRect(drawX + 0.5, drawY + 0.5, size, size);
+            }
+        }
+        function draw() {
+            if (!context || !canvas.width || !canvas.height) return;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.fillStyle = '#1a202c';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            if(board) {
+                for (let y = 0; y < ROWS; y++) {
+                    for (let x = 0; x < COLS; x++) {
+                        if (board[y][x] !== 0) drawBlock(x, y, board[y][x]);
+                    }
+                }
+            }
+            if (currentPiece && !gameOver) {
+                const shape = currentPiece.shape;
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        if (shape[row][col] !== 0) drawBlock(currentX + col, currentY + row, currentPiece.colorIndex);
+                    }
+                }
+            }
+        }
+
+        // --- Game Loop ---
+        function gameLoopStep() {
+            if (gameOver) {
+                if (dropInterval) clearInterval(dropInterval);
+                return;
+            }
+            if (!movePiece(0, 1)) {
+                placePiece();
+            }
+            if (!gameOver) {
+                draw();
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('keydown', (event) => {
+            startTone();
+            if (gameOver) return;
+            let handled = true;
+            switch (event.key) {
+                case 'ArrowLeft': case 'a': movePiece(-1, 0); break;
+                case 'ArrowRight': case 'd': movePiece(1, 0); break;
+                case 'ArrowDown': case 's':
+                    if (!movePiece(0, 1)) { placePiece(); }
+                    else {
+                        if (dropInterval) clearInterval(dropInterval);
+                        dropInterval = setInterval(gameLoopStep, currentDropIntervalTime);
+                    }
+                    break;
+                case 'ArrowUp': case 'w': rotatePiece(); break;
+                case ' ': hardDrop(); break;
+                default: handled = false; break;
+            }
+            if (handled) {
+                event.preventDefault();
+                // Draw only if action doesn't handle its own draw
+                if (event.key !== 'ArrowUp' && event.key !== 'w' && event.key !== ' ') {
+                   draw();
+                }
+            }
+        });
+
+        // Get button elements
+        const leftBtn = document.getElementById('leftButton');
+        const rightBtn = document.getElementById('rightButton');
+        const rotateBtn = document.getElementById('rotateButton');
+        const downBtn = document.getElementById('downButton');
+        // Drop button element removed
+        // const dropBtn = document.getElementById('dropButton');
+
+        // Setup listeners function
+        const setupButtonListener = (button, action) => {
+            const handler = (event) => {
+                event.preventDefault();
+                if (gameOver || !button) return; // Added check for button existence
+                startTone();
+                action();
+            };
+            if (button) { // Check if button exists before adding listener
+                 button.addEventListener('touchstart', handler, { passive: false });
+                 button.addEventListener('click', handler);
+            }
+        };
+
+        // Setup listeners for existing buttons
+        setupButtonListener(leftBtn, () => { movePiece(-1, 0); draw(); });
+        setupButtonListener(rightBtn, () => { movePiece(1, 0); draw(); });
+        setupButtonListener(rotateBtn, rotatePiece);
+        setupButtonListener(downBtn, () => { if (!movePiece(0, 1)) placePiece(); else draw(); });
+        // Drop button listener setup removed
+        // setupButtonListener(dropBtn, hardDrop);
+
+        // Reset/Difficulty/Restart buttons
+        resetButton.addEventListener('click', resetGame);
+        difficultySelect.addEventListener('change', resetGame);
+        restartButton.addEventListener('click', resetGame);
+
+        // --- Window Resize Handling ---
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(resizeCanvas, 150);
+        });
+        window.addEventListener('orientationchange', () => {
+             clearTimeout(resizeTimeout);
+             resizeTimeout = setTimeout(resizeCanvas, 150);
+        });
+
+        // --- Initial Game Start ---
+        window.onload = () => {
+            console.log("Window loaded, initializing game...");
+            resetGame();
+        };
+    </script>
+</body>
+</html>
